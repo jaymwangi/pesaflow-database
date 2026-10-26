@@ -62,5 +62,8 @@ CREATE TABLE payments.ledger_entries (
         CHECK (entry_type IN ('debit', 'credit')),
 
     CONSTRAINT ledger_amount_positive
-        CHECK (amount > 0)
+        CHECK (amount > 0),
+
+    CONSTRAINT ledger_transfer_entry_type_unique
+        UNIQUE (transfer_id, entry_type)
 );
