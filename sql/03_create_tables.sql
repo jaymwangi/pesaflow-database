@@ -32,6 +32,7 @@ CREATE TABLE payments.transfers (
         REFERENCES payments.accounts(account_id),
     amount NUMERIC(19, 2) NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
+    idempotency_key UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT transfers_amount_positive
@@ -41,7 +42,10 @@ CREATE TABLE payments.transfers (
         CHECK (sender_account_id <> receiver_account_id),
 
     CONSTRAINT transfers_status_valid
-        CHECK (status IN ('pending', 'completed', 'failed'))
+        CHECK (status IN ('pending', 'completed', 'failed')),
+
+    CONSTRAINT transfers_idempotency_key_unique
+        UNIQUE (idempotency_key)
 );
 
 CREATE TABLE payments.ledger_entries (
