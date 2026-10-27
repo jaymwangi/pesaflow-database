@@ -253,3 +253,87 @@ END;
 $$;
 
 ROLLBACK;
+
+
+-- Test 6: A completed transfer without ledger entries must be rejected
+-- when deferred constraints are checked.
+BEGIN;
+
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO payments.transfers (
+            sender_account_id,
+            receiver_account_id,
+            amount,
+            status,
+            idempotency_key
+        )
+        VALUES (
+            1,
+            2,
+            10.00,
+            'completed',
+            '66666666-6666-4666-8666-666666666666'
+        );
+
+        SET CONSTRAINTS ALL IMMEDIATE;
+
+        RAISE EXCEPTION
+            'Test 6 failed: completed transfer without ledger entries was accepted';
+
+    EXCEPTION
+        WHEN SQLSTATE 'P0001' THEN
+            IF SQLERRM NOT LIKE
+                'Completed transfer % must have exactly one matching debit and credit' THEN
+                RAISE;
+            END IF;
+    END;
+
+    RAISE NOTICE
+        'Test 6 passed: completed transfer without ledger entries rejected';
+END;
+$$;
+
+ROLLBACK;
+
+
+-- Test 7: Deleting a required ledger entry must be rejected
+-- when deferred constraints are checked.
+BEGIN;
+
+DO $$
+DECLARE
+    v_transfer_id BIGINT;
+BEGIN
+    BEGIN
+        v_transfer_id := payments.transfer_funds(
+            1,
+            2,
+            10.00,
+            '77777777-7777-4777-8777-777777777777'
+        );
+
+        DELETE FROM payments.ledger_entries
+        WHERE transfer_id = v_transfer_id
+          AND entry_type = 'debit';
+
+        SET CONSTRAINTS ALL IMMEDIATE;
+
+        RAISE EXCEPTION
+            'Test 7 failed: deleting a required debit was accepted';
+
+    EXCEPTION
+        WHEN SQLSTATE 'P0001' THEN
+            IF SQLERRM NOT LIKE
+                'Completed transfer % must have exactly one matching debit and credit' THEN
+                RAISE;
+            END IF;
+    END;
+
+    RAISE NOTICE
+        'Test 7 passed: invalid ledger deletion rejected';
+END;
+$$;
+
+ROLLBACK;
